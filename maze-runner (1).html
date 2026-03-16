@@ -303,37 +303,47 @@
   .pulse { animation: pulse 2.2s ease-in-out infinite; }
 
   /* ── D-PAD ── */
-  .dpad {
+  /* ── D-PAD: absolute layout, no grid ── */
+  .dpad-wrap {
     display: none;
-    grid-template-columns: 56px 56px 56px;
-    grid-template-rows: 56px 56px 56px;
-    gap: 5px;
-    padding: 14px 0 18px;
-    justify-content: center;
+    width: 100%;
+    padding: 14px 0 20px;
     border-top: 1px solid var(--border);
     background: rgba(17,17,16,0.98);
-    width: 100%;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .dpad {
+    position: relative;
+    width: 180px;
+    height: 180px;
   }
   .dpad-btn {
-    width: 56px; height: 56px;
+    position: absolute;
+    width: 54px; height: 54px;
     border-radius: 12px;
     border: 1px solid var(--border2);
     background: var(--bg2);
     color: var(--text);
-    font-size: 20px;
+    font-size: 22px;
     display: flex; align-items: center; justify-content: center;
     cursor: pointer;
     user-select: none;
     -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
     transition: background 0.08s, transform 0.08s;
   }
   .dpad-btn:active { background: var(--bg3); transform: scale(0.88); }
-  .dpad-center { background: transparent !important; border: none !important; pointer-events: none; }
+  #dbtn-up    { top: 0px;   left: 63px; }
+  #dbtn-left  { top: 63px;  left: 0px;  }
+  #dbtn-right { top: 63px;  left: 126px;}
+  #dbtn-down  { top: 126px; left: 63px; }
 
   @media (max-width: 768px) and (pointer: coarse) {
-    .dpad { display: grid; }
+    .dpad-wrap { display: flex; }
     .hint { display: none; }
-    #maze-wrap { padding: 10px 8px 6px; }
+    #maze-wrap { padding: 8px 8px 4px; }
     .game-header { padding: 8px 12px; }
     .hud { gap: 10px; }
     .hud-item { font-size: 11px; }
@@ -384,16 +394,13 @@
   <div class="progress-track"><div class="progress-fill" id="pbar"></div></div>
   <div id="maze-wrap"><canvas id="maze"></canvas></div>
   <div class="hint">Arrow keys / WASD &mdash; swipe on touch</div>
-  <div class="dpad" id="dpad">
-    <div></div>
-    <button class="dpad-btn" id="dbtn-up" ontouchstart="dpadPress(-1,0)" ontouchend="dpadRelease()">&#8679;</button>
-    <div></div>
-    <button class="dpad-btn" id="dbtn-left" ontouchstart="dpadPress(0,-1)" ontouchend="dpadRelease()">&#8678;</button>
-    <div class="dpad-btn dpad-center"></div>
-    <button class="dpad-btn" id="dbtn-right" ontouchstart="dpadPress(0,1)" ontouchend="dpadRelease()">&#8680;</button>
-    <div></div>
-    <button class="dpad-btn" id="dbtn-down" ontouchstart="dpadPress(1,0)" ontouchend="dpadRelease()">&#8681;</button>
-    <div></div>
+  <div class="dpad-wrap">
+    <div class="dpad">
+      <button class="dpad-btn" id="dbtn-up"    ontouchstart="dpadPress(-1,0)" ontouchend="dpadRelease()">&#8679;</button>
+      <button class="dpad-btn" id="dbtn-left"  ontouchstart="dpadPress(0,-1)" ontouchend="dpadRelease()">&#8678;</button>
+      <button class="dpad-btn" id="dbtn-right" ontouchstart="dpadPress(0,1)"  ontouchend="dpadRelease()">&#8680;</button>
+      <button class="dpad-btn" id="dbtn-down"  ontouchstart="dpadPress(1,0)"  ontouchend="dpadRelease()">&#8681;</button>
+    </div>
   </div>
 </div>
 
@@ -797,11 +804,11 @@ window.addEventListener('keydown',e=>{
 
 let tx0=null,ty0=null;
 window.addEventListener('touchstart',e=>{
-  if(e.target.closest('#dpad')) return;
+  if(e.target.closest('.dpad-wrap')) return;
   tx0=e.touches[0].clientX;ty0=e.touches[0].clientY;
 },{passive:true});
 window.addEventListener('touchend',e=>{
-  if(e.target.closest('#dpad')) return;
+  if(e.target.closest('.dpad-wrap')) return;
   if(tx0===null)return;
   const dx=e.changedTouches[0].clientX-tx0,dy=e.changedTouches[0].clientY-ty0;
   if(Math.hypot(dx,dy)<18)return;
