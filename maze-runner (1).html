@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <title>Maze Runner</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;700;800&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
 <style>
@@ -31,7 +33,11 @@
     color: var(--text);
     font-family: 'Syne', sans-serif;
     overflow-x: hidden;
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: pan-x pan-y;
   }
+  body { overflow: hidden; }
 
   /* ── SCREENS ── */
   .screen {
@@ -296,11 +302,51 @@
   }
   .pulse { animation: pulse 2.2s ease-in-out infinite; }
 
+  /* ── D-PAD ── */
+  .dpad {
+    display: none;
+    grid-template-columns: repeat(3, 52px);
+    grid-template-rows: repeat(3, 52px);
+    gap: 4px;
+    padding: 12px 0 16px;
+    justify-content: center;
+    border-top: 1px solid var(--border);
+    background: rgba(17,17,16,0.98);
+  }
+  .dpad-btn {
+    width: 52px; height: 52px;
+    border-radius: 10px;
+    border: 1px solid var(--border2);
+    background: var(--bg2);
+    color: var(--text);
+    font-size: 18px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    active-scale: 0.9;
+    transition: background 0.08s, transform 0.08s;
+  }
+  .dpad-btn:active { background: var(--bg3); transform: scale(0.88); }
+  .dpad-center { background: transparent; border: none; pointer-events: none; }
+
+  @media (max-width: 768px) and (pointer: coarse) {
+    .dpad { display: grid; }
+    .hint { display: none; }
+    #maze-wrap { padding: 10px 8px 6px; }
+    .game-header { padding: 8px 12px; }
+    .hud { gap: 10px; }
+    .hud-item { font-size: 11px; }
+    .diff-pill { display: none; }
+  }
+
   /* ── RESPONSIVE ── */
   @media (max-width: 600px) {
-    .welcome-title { font-size: 56px; letter-spacing: -2px; }
+    .welcome-title { font-size: clamp(52px, 18vw, 80px); letter-spacing: -2px; }
     .hud { gap: 10px; }
     .win-title { font-size: 32px; }
+    .badges { gap: 6px; }
+    .badge { font-size: 10px; padding: 4px 10px; }
   }
 </style>
 </head>
@@ -338,6 +384,17 @@
   <div class="progress-track"><div class="progress-fill" id="pbar"></div></div>
   <div id="maze-wrap"><canvas id="maze"></canvas></div>
   <div class="hint">Arrow keys / WASD &mdash; swipe on touch</div>
+  <div class="dpad" id="dpad">
+    <div></div>
+    <button class="dpad-btn" id="dbtn-up" ontouchstart="dpadPress(-1,0)" ontouchend="dpadRelease()">&#8679;</button>
+    <div></div>
+    <button class="dpad-btn" id="dbtn-left" ontouchstart="dpadPress(0,-1)" ontouchend="dpadRelease()">&#8678;</button>
+    <div class="dpad-btn dpad-center"></div>
+    <button class="dpad-btn" id="dbtn-right" ontouchstart="dpadPress(0,1)" ontouchend="dpadRelease()">&#8680;</button>
+    <div></div>
+    <button class="dpad-btn" id="dbtn-down" ontouchstart="dpadPress(1,0)" ontouchend="dpadRelease()">&#8681;</button>
+    <div></div>
+  </div>
 </div>
 
 <!-- WIN -->
@@ -423,6 +480,7 @@ function buildWL(){
 function wTick(t){
   requestAnimationFrame(wTick);
   if(!document.getElementById('welcome').classList.contains('active')) return;
+  driftWaveMouse();
   wm.sx+=(wm.x-wm.sx)*0.1; wm.sy+=(wm.y-wm.sy)*0.1;
   const dx=wm.x-wm.lx, dy=wm.y-wm.ly, d=Math.hypot(dx,dy);
   wm.vs+=(d-wm.vs)*0.1; wm.vs=Math.min(100,wm.vs);
@@ -438,7 +496,7 @@ function wTick(t){
     p.cx=Math.min(100,Math.max(-100,p.cx)); p.cy=Math.min(100,Math.max(-100,p.cy));
   }));
   wx.clearRect(0,0,wc.width,wc.height);
-  wx.beginPath(); wx.strokeStyle='rgba(200,200,190,0.13)'; wx.lineWidth=1;
+  wx.beginPath(); wx.strokeStyle='rgba(210,208,196,0.18)'; wx.lineWidth=1;
   wlines.forEach(pts=>{
     wx.moveTo(pts[0].x+pts[0].wx, pts[0].y+pts[0].wy);
     pts.forEach((p,i)=>{ const last=i===pts.length-1; wx.lineTo(p.x+p.wx+(last?0:p.cx), p.y+p.wy+(last?0:p.cy)); });
@@ -449,8 +507,36 @@ window.addEventListener('mousemove',e=>{
   wm.x=e.clientX; wm.y=e.clientY;
   if(!wm.set){wm.sx=wm.x;wm.sy=wm.y;wm.lx=wm.x;wm.ly=wm.y;wm.set=true;}
 });
+
+/* ── TOUCH → WAVES (makes waves react to finger on mobile) ── */
+window.addEventListener('touchmove',e=>{
+  if(!document.getElementById('welcome').classList.contains('active')) return;
+  const t=e.touches[0];
+  wm.x=t.clientX; wm.y=t.clientY;
+  if(!wm.set){wm.sx=wm.x;wm.sy=wm.y;wm.lx=wm.x;wm.ly=wm.y;wm.set=true;}
+},{passive:true});
+
+/* simulate slow drift when no input on mobile so waves still move */
+function driftWaveMouse(){
+  if(!wm.set){
+    wm.x=wc.width/2 + Math.sin(Date.now()*0.0005)*wc.width*0.3;
+    wm.y=wc.height/2 + Math.cos(Date.now()*0.0004)*wc.height*0.25;
+  }
+}
+
 window.addEventListener('resize',wResize);
 wResize(); wTick(0);
+
+/* ── D-PAD REPEAT ── */
+let dpadInterval=null;
+window.dpadPress=function(dr,dc){
+  tryMove(dr,dc);
+  dpadInterval=setInterval(()=>tryMove(dr,dc),180);
+};
+window.dpadRelease=function(){
+  clearInterval(dpadInterval);
+  dpadInterval=null;
+};
 
 /* ── LEVELS ── */
 const LEVELS=[
@@ -710,11 +796,15 @@ window.addEventListener('keydown',e=>{
 });
 
 let tx0=null,ty0=null;
-window.addEventListener('touchstart',e=>{tx0=e.touches[0].clientX;ty0=e.touches[0].clientY;},{passive:true});
+window.addEventListener('touchstart',e=>{
+  if(e.target.closest('#dpad')) return;
+  tx0=e.touches[0].clientX;ty0=e.touches[0].clientY;
+},{passive:true});
 window.addEventListener('touchend',e=>{
+  if(e.target.closest('#dpad')) return;
   if(tx0===null)return;
   const dx=e.changedTouches[0].clientX-tx0,dy=e.changedTouches[0].clientY-ty0;
-  if(Math.hypot(dx,dy)<12)return;
+  if(Math.hypot(dx,dy)<18)return;
   Math.abs(dx)>Math.abs(dy)?tryMove(0,dx>0?1:-1):tryMove(dy>0?1:-1,0);
   tx0=null;ty0=null;
 },{passive:true});
